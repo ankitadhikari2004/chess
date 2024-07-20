@@ -26,24 +26,43 @@ io.on('connection', function(uniquesocket) {
     if (!players.white) {
         players.white = uniquesocket.id;
         uniquesocket.emit('playerRole', 'w');
+        io.emit('playerStatus', 'w', 'Connected');
     } else if (!players.black) {
         players.black = uniquesocket.id;
         uniquesocket.emit('playerRole', 'b');
+        io.emit('playerStatus', 'b', 'Connected');
     } else {
         uniquesocket.emit('spectatorRole', 'The game is full');
+    }
+
+    // Notify both players of the current status
+    if (players.white) {
+        io.to(players.white).emit('playerStatus', 'b', players.black ? 'Connected' : 'Waiting for opponent');
+    }
+    if (players.black) {
+        io.to(players.black).emit('playerStatus', 'w', players.white ? 'Connected' : 'Waiting for opponent');
     }
 
     uniquesocket.on('disconnect', function() {
         if (uniquesocket.id === players.white) {
             delete players.white;
+            io.emit('playerStatus', 'w', 'Disconnected');
         } else if (uniquesocket.id === players.black) {
             delete players.black;
+            io.emit('playerStatus', 'b', 'Disconnected');
+        }
+
+        // Notify the remaining player about the disconnection
+        if (players.white) {
+            io.to(players.white).emit('playerStatus', 'b', 'Disconnected');
+        }
+        if (players.black) {
+            io.to(players.black).emit('playerStatus', 'w', 'Disconnected');
         }
     });
 
     uniquesocket.on('move', function(move) {
         try {
-            // Other player can't move while it's not their turn
             if (chess.turn() === 'w' && uniquesocket.id !== players.white) { return; }
             if (chess.turn() === 'b' && uniquesocket.id !== players.black) { return; }
 

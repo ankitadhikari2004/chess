@@ -5,7 +5,50 @@ const boardElement = document.querySelector(".chessboard");
 let draggedPiece = null;
 let sourceSquare = null;
 let playerRole = null;
+let playerStatuses = { w: false, b: false };
 
+const turnDisplay = document.getElementById("turnDisplay");
+const whiteStatus = document.getElementById("whiteStatus");
+const blackStatus = document.getElementById("blackStatus");
+
+const loadingScreen = document.getElementById("loadingScreen");
+const chessContainer = document.getElementById("chessContainer");
+
+// Update the display showing whose turn it is
+const updateTurnDisplay = () => {
+    turnDisplay.innerText = chess.turn() === 'w' ? "White's Turn" : "Black's Turn";
+};
+
+// Update the player status and show the chess container if both players are connected
+const updatePlayerStatus = (role, status) => {
+    if (role === 'w') {
+        whiteStatus.innerText = `White: ${status}`;
+        playerStatuses.w = (status === 'Connected');
+    } else if (role === 'b') {
+        blackStatus.innerText = `Black: ${status}`;
+        playerStatuses.b = (status === 'Connected');
+    }
+
+    if (playerStatuses.w && playerStatuses.b) {
+        showChessContainer(); // Hide the loading screen and show the chess board
+    }
+};
+
+// Show the chess container and hide the loading screen
+const showChessContainer = () => {
+    setTimeout(() => {
+        loadingScreen.classList.add('hidden');
+        chessContainer.classList.remove('hidden');
+    }, 3000); // Adjust the delay if necessary
+};
+
+// Show the loading screen and hide the chess container
+const showLoadingScreen = () => {
+    loadingScreen.classList.remove('hidden');
+    chessContainer.classList.add('hidden');
+};
+
+// Render the chess board with pieces
 const renderBoard = () => {
     const board = chess.board();
     boardElement.innerHTML = "";
@@ -64,15 +107,16 @@ const renderBoard = () => {
             boardElement.appendChild(squareElement);
         });
     });
-    if(playerRole =='b'){
+    if (playerRole === 'b') {
         boardElement.classList.add("flipped");
-
-    }
-    else{
+    } else {
         boardElement.classList.remove("flipped");
     }
+
+    updateTurnDisplay(); // Update the turn display after rendering the board
 };
 
+// Handle moving a piece
 const handleMove = (source, target) => {
     const move = {
         from: `${String.fromCharCode(97 + source.col)}${8 - source.row}`,
@@ -84,6 +128,7 @@ const handleMove = (source, target) => {
     socket.emit("move", move);
 };
 
+// Convert piece type to Unicode character
 const getPieceUnicode = (piece) => {
     const unicodePieces = {
         p: '♙',
@@ -103,15 +148,22 @@ const getPieceUnicode = (piece) => {
     return unicodePieces[piece.type] || "";
 };
 
+// Socket event handlers
+socket.on('playerStatus', function(role, status) {
+    updatePlayerStatus(role, status);
+});
+
 socket.on("playerRole", function(role) {
     console.log("Player role:", role);
     playerRole = role;
+    
     renderBoard();
 });
 
 socket.on("spectatorRole", function() {
     console.log("Spectator role");
     playerRole = null;
+   
     renderBoard();
 });
 
@@ -127,4 +179,5 @@ socket.on("move", function(move) {
     renderBoard();
 });
 
-renderBoard();
+// Initially show the loading screen
+showLoadingScreen();
